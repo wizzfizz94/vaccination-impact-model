@@ -4,35 +4,50 @@ from constants import N, PROB_OF_ASSOCIATION, \
 from individual import Individual
 import numpy as np
 import random
+import matplotlib.pyplot as plt
 
 
 '''Graph for social network of individuals'''
 class SocialNetworkGraph:
 
     def __init__(self):
-        self.g = nx.newman_watts_strogatz_graph(N, 30, 0.3)
-        # self.g = nx.scale_free_graph(
-        #     N, alpha=0.8, beta=0.1, gamma=0.1, delta_in=0, delta_out=0).to_undirected()
-        for i in self.g.nodes():
-            self.g.node[i]['decision'] = \
-                np.random.choice([1,-1], p=[1-PROB_OF_ANTI_VAC, PROB_OF_ANTI_VAC])
+        self.graphs = []
+        self.graphs.append(nx.watts_strogatz_graph(50, 4, 0.5))
+        self.graphs.append(nx.scale_free_graph(
+            50, alpha=0.4, beta=0.2, gamma=0.4, delta_in=0, delta_out=0).to_undirected())
+        self.graphs.append(nx.barabasi_albert_graph(50, 2))
+        for g in self.graphs:
+            for i in g.nodes():
+                g.node[i]['decision'] = \
+                    np.random.choice([1,-1], p=[1-PROB_OF_ANTI_VAC, PROB_OF_ANTI_VAC])
+                g.node[i]['weight'] = np.random.normal()
 
     def draw(self):
-        nx.draw(self.g)
+        for i, g in enumerate(self.graphs):
+            plt.figure(i)
+            nx.draw(g)
 
-    def updateGraph(self):
-        count = 0
-        n = self.g.nodes()
-        random.shuffle(n)
-        for i in n:
-            # calc percieved risk
-            self.calcPerceivedRiskOfInfection(i)
-            # update decision
-            count += self.changeChoice(i)
-        return count == 0
+    def updateGraphs(self):
+        for g in self.graphs:
+            count = None
+            while(count != 0):
+                count = 0
+                n = self.g.nodes()
+                random.shuffle(n)
+                for i in n:
+                    # calc percieved risk
+                    self.calcPerceivedRiskOfInfection(i)
+                    # add social influence
+                    self.addSocialInfluence(i)
+                    # update decision
+                    count += self.updateDecision(i)
+
+    def addSocialInfluence(self):
+        # calc pro vac influence
+        pass
 
     '''changes individuals choice'''
-    def changeChoice(self, index):
+    def updateDecision(self, index):
         l = self.g.node[index]['percieved_risk']
         d = self.g.node[index]['decision']
         if COST_RATIO < l and d == -1:

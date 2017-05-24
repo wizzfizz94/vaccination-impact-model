@@ -12,9 +12,8 @@ if __name__ == '__main__':
     sng = SocialNetworkGraph()
     stable = False
     sng.draw()
+    sng.updateGraphs()
     plt.show()
-    while (stable != True):
-        stable = sng.updateGraph()
 
     # fig = plt.figure()
     # animation.FuncAnimation(fig, update_graph, fargs=(g), interval=200, blit=True, repeat=False )
