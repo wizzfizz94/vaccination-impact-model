@@ -1,25 +1,19 @@
 import networkx as nx
-from constants import N, RECOVERY_RATE, \
-PROB_OF_ANTI_VAC, COST_RATIO, INFECTION_RATE, \
-PERCIEVED_INFECTION_RATE, RESPONSIVENESS,\
-REPRODUCTION_NUMBER, I_START, INFECTION_RISK,\
-SOCIAL_INFLUENCE_FACTOR, CLOSENESS_FACTOR
+from constants import *
 import numpy as np
 import random
 import matplotlib.pyplot as plt
 import math
 from mpl_toolkits.mplot3d import Axes3D
 
-def plotDecDiff(fig, g, j):
+def plotDecDiff(fig, g, j, pos):
     vac, non = [], []
-    pos = nx.spring_layout(g)
     for i in g.nodes():
         if g.node[i]['decision'] == 1:
             vac.append(i)
         else:
             non.append(i)
     fig.add_subplot(2,2,j)
-    plt.axis("off")
     nx.draw_networkx_nodes(g, pos,
                            nodelist=vac,
                            node_color='b',
@@ -27,7 +21,6 @@ def plotDecDiff(fig, g, j):
                            label="Pro Vaxx",
                            node_size=10)
     fig.add_subplot(2,2,j+2)
-    plt.axis("off")
     nx.draw_networkx_nodes(g, pos,
                            nodelist=non,
                            node_color='r',
@@ -82,6 +75,7 @@ def addSocialInfluence(g):
     n = g.nodes()
     random.shuffle(n)
     for i in n:
+        dec = g.node[i]['decision']
         l_vac = 0
         l_non = 0
         neighbours = g.neighbors(i)
@@ -94,8 +88,8 @@ def addSocialInfluence(g):
         l_diff = (l_vac - l_non)/(l_vac + l_non)
         prob = 1/(1 + math.exp(-RESPONSIVENESS*l_diff))
         sd = np.random.choice([1, -1], p=[prob, 1-prob])
-        g.node[i]['decision'] = np.random.choice([g.node[i]['decision'], sd],
-            p=[g.node[i]['social-influence'], 1-g.node[i]['social-influence']])
+        final = g.node[i]['decision'] = np.random.choice([g.node[i]['decision'], sd],
+            p=[1-g.node[i]['social-influence'], g.node[i]['social-influence']])
 
 
 '''changes individuals choice'''
@@ -132,11 +126,11 @@ def getNonVacNeighbours(g, index):
 def calcPerceivedRiskOfInfection(g, index):
     n_vac = getVacNeighbours(g, index)
     n_non = getNonVacNeighbours(g, index)
-    g.node[index]['percieved_risk'] = PERCIEVED_INFECTION_RATE * (n_non / (n_non + n_vac))
+    p_risk = g.node[index]['percieved_risk'] = PERCIEVED_INFECTION_RATE * (n_non / (n_non + n_vac))
 
 def makeSFGraph():
     multi_g = nx.scale_free_graph(
-        N, alpha=0.4, beta=0.2, gamma=0.4, delta_in=0, delta_out=0)
+        N, alpha=0.2, beta=0.75, gamma=0.05, delta_in=0, delta_out=0)
 
     # covert to normal and add weights
     g = nx.Graph()
@@ -157,27 +151,38 @@ def calcCoverage(g):
     for n in g.nodes():
         if g.node[n]['decision'] == 1:
             vac += 1
+
     return float(vac)/N
 
 
-def plotCoverage():
+def plotCoverage(grain):
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    x,y,z = [],[],[]
+    x,y,dz = [],[],[]
+    assert isinstance(grain, float)
 
-    for i in range(10):
-        COST_RATIO = i/100.0
-        for j in range(10):
-            SOCIAL_INFLUENCE_FACTOR = i/100.0
+    for i in range(int(grain)):
+        for j in range(int(grain)):
+            global SOCIAL_INFLUENCE_FACTOR
+            SOCIAL_INFLUENCE_FACTOR = j/grain
+            global COST_RATIO
+            COST_RATIO = i/grain
             g = makeSFGraph()
             x.append(SOCIAL_INFLUENCE_FACTOR)
             y.append(COST_RATIO)
             makeLocalDecisions(g)
             addSocialInfluence(g)
-            z.append(calcCoverage(g))
+            dz.append(calcCoverage(g))
 
-    ax.bar3d(x,y,z, 0.5,0.5,0.5)
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    ax.set_xlabel("p factor")
+    ax.set_ylabel("Cost ratio")
+    ax.set_zlabel("Vac coverage")
+    z = [0] * int(grain**2)
+    cm = plt.get_cmap('gist_rainbow')
+    cc = [cm(k/(grain**2)) for k in range(int(grain**2))]
+    ax.bar3d(x, y, z, 1/grain, 1/grain, dz, color=cc)
+    plt.show()
 
 
 if __name__ == '__main__':
@@ -204,16 +209,20 @@ if __name__ == '__main__':
     # plt.show()
 
     # show before and after social pressures
-    g = makeSFGraph()
+    # g = makeSFGraph()
+    # plt.xticks([])
+    # plt.yticks([])
+    # fig = plt.figure()
+    # fig.suptitle('Before vs After Social Influence')
+    # makeLocalDecisions(g)
+    # plotDecDiff(fig, g, 1)
+    # addSocialInfluence(g)
+    # plotDecDiff(fig, g, 2)
+    # plt.show()
 
-    plt.xticks([])
-    plt.yticks([])
-    fig = plt.figure()
-    fig.suptitle('Before vs After Social Influence')
-    makeLocalDecisions(g)
-    plotDecDiff(fig, g, 1)
-    addSocialInfluence(g)
-    plotDecDiff(fig, g, 2)
-    plotCoverage()
+    # plotCoverage(15.0)
+    g = makeSFGraph()
+    sir = calcImpact(g)
+    plotSIR(sir)
     plt.show()
 
