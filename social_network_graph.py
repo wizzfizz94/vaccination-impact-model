@@ -29,7 +29,7 @@ class SocialNetworkGraph:
             plt.figure(i)
             vac = []
             non = []
-            pos = nx.spring_layout(g)
+            pos = nx.spring_layout(g, weight=None)
             for i in g.nodes():
                 if g.node[i]['decision'] == 1:
                     vac.append(i)
